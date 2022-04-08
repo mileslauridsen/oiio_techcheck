@@ -4,7 +4,7 @@ import os
 import logging
 import datetime
 import pyseq
-from pathlib import Path, PurePath
+from pathlib import Path
 
 # set logging
 logging.basicConfig(level=logging.INFO)
