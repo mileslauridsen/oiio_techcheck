@@ -1,8 +1,10 @@
 import subprocess
 import re
 import os
+import sys
 import logging
 import datetime
+import json
 import pyseq
 from pathlib import Path
 
@@ -66,4 +68,31 @@ def seq_checker(dirpath):
                 seqdict[seqkey][frame] = dict()
                 statsdict = get_oiio_stats(file.path)
                 seqdict[seqkey][frame]['stats'] = statsdict
+    minimum = [1000000.0, 1000000.0, 1000000.0]
+    maximum = [0.0, 0.0, 0.0]
+
+    for item in seqdict[list(seqdict.keys())[1]]:
+        maxlist = seqdict[list(seqdict.keys())[1]][item]['stats']['max']
+        minlist = seqdict[list(seqdict.keys())[1]][item]['stats']['min']
+        for i in range(0, 3):
+            if float(maxlist[i]) > maximum[i]:
+                maxlist[i] = float(maxlist[i])
+            if float(minlist[0]) < minimum[i]:
+                minimum[i] = float(minlist[i])
+        seqdict['maximum'] = maxlist
+        seqdict['minimum'] = minlist
+
     return seqdict
+
+
+def save_techcheck(seqdict, outpath):
+    outfilepath = os.path.join(outpath, "{0}_{1}.json".format(os.path.basename(seqdict['path']), "techcheck"))
+    with open(outfilepath, 'w') as outfile:
+        json.dump(seqdict, outfile)
+
+
+if __name__ == "__main__":
+    dirpath = sys.argv[1]
+    outpath = sys.argv[2]
+    seqdict = seq_checker(dirpath)
+    save_techcheck(seqdict, outpath)
