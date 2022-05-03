@@ -26,6 +26,7 @@ output_file_handler.setFormatter(formatter)
 log.addHandler(output_file_handler)
 
 OIIOTOOL = "/usr/local/bin/oiiotool"
+FILETYPES = ['.exr', '.tif', '.hdr', '.jpg', '.png']
 
 
 def get_oiio_stats(filename):
@@ -56,43 +57,81 @@ def get_oiio_stats(filename):
     return statsdict
 
 
-def seq_checker(dirpath):
+def seq_stats_checker(dirpath):
     seqdict = dict()
     if os.path.isdir(dirpath):
+        log.info("Checking dirpath: {0}".format(dirpath))
         seqdict['path'] = dirpath
-        for seq in pyseq.get_sequences(dirpath):
-            seqkey = os.path.basename(seq.name).split('.')[0]
-            seqdict[seqkey] = dict()
-            for file in seq:
-                frame = str(file.frame).zfill(file.pad)
-                seqdict[seqkey][frame] = dict()
-                statsdict = get_oiio_stats(file.path)
-                seqdict[seqkey][frame]['stats'] = statsdict
-    minimum = [1000000.0, 1000000.0, 1000000.0]
-    maximum = [0.0, 0.0, 0.0]
+        seqs = pyseq.get_sequences(dirpath)
+        if seqs:
+            for seq in seqs:
+                seqkey = os.path.basename(seq.name).split('.')[0]
+                seqdict[seqkey] = dict()
+                seqdict[seqkey]['frames'] = dict()
+                seqdict[seqkey]['path'] = os.path.join(seqdict['path'], str(seq))
+                for file in seq:
+                    if Path(file.path).suffix.lower() in FILETYPES:
+                        frame = str(file.frame).zfill(file.pad)
+                        seqdict[seqkey]['frames'][frame] = dict()
+                        if os.path.isfile(file.path):
+                            statsdict = get_oiio_stats(file.path)
+                            seqdict[seqkey]['frames'][frame]['stats'] = statsdict
 
-    for item in seqdict[list(seqdict.keys())[1]]:
-        maxlist = seqdict[list(seqdict.keys())[1]][item]['stats']['max']
-        minlist = seqdict[list(seqdict.keys())[1]][item]['stats']['min']
-        for i in range(0, 3):
-            if float(maxlist[i]) > maximum[i]:
-                maxlist[i] = float(maxlist[i])
-            if float(minlist[0]) < minimum[i]:
-                minimum[i] = float(minlist[i])
-        seqdict['maximum'] = maxlist
-        seqdict['minimum'] = minlist
-
+    # remove empty items
+    for item in list(seqdict):
+        if not seqdict[item]:
+            seqdict.pop(item)
     return seqdict
 
 
-def save_techcheck(seqdict, outpath):
-    outfilepath = os.path.join(outpath, "{0}_{1}.json".format(os.path.basename(seqdict['path']), "techcheck"))
+def find_min_max(seqdetect):
+    if seqdetect:
+        maxred = [seqdetect['frames'][x]['stats']['max'][0] for x in seqdetect['frames']]
+        maxgreen = [seqdetect['frames'][x]['stats']['max'][1] for x in seqdetect['frames']]
+        maxblue = [seqdetect['frames'][x]['stats']['max'][2] for x in seqdetect['frames']]
+        minred = [seqdetect['frames'][x]['stats']['min'][0] for x in seqdetect['frames']]
+        mingreen = [seqdetect['frames'][x]['stats']['min'][1] for x in seqdetect['frames']]
+        minblue = [seqdetect['frames'][x]['stats']['min'][2] for x in seqdetect['frames']]
+
+        seqdetect['maximum'] = max(maxred), max(maxgreen), max(maxblue)
+        seqdetect['minimum'] = min(minred), min(mingreen), min(minblue)
+
+        return seqdetect
+
+
+def find_nan_frames(seqdetect):
+    seqdetect['nans'] = list()
+    if seqdetect:
+        for frame in seqdetect['frames']:
+            if int(max(seqdetect['frames'][frame]['stats']['nan'])) > 0:
+                seqdetect['nans'].append(frame)
+    return seqdetect
+
+
+def find_inf_frames(seqdetect):
+    seqdetect['infs'] = list()
+    if seqdetect:
+        for frame in seqdetect['frames']:
+            if int(max(seqdetect['frames'][frame]['stats']['inf'])) > 0:
+                seqdetect['infs'].append(frame)
+    return seqdetect
+
+
+def save_techcheck(seqdetect, outpath):
+    outfilename = os.path.basename(seqdetect['path']).split('.')[0]
+    outfilepath = os.path.join(outpath, "{0}_{1}.json".format(outfilename, "techcheck"))
     with open(outfilepath, 'w') as outfile:
-        json.dump(seqdict, outfile)
+        json.dump(seqdetect, outfile, indent=4)
 
 
 if __name__ == "__main__":
     dirpath = sys.argv[1]
     outpath = sys.argv[2]
-    seqdict = seq_checker(dirpath)
-    save_techcheck(seqdict, outpath)
+    seqdict = seq_stats_checker(dirpath)
+
+    for key in seqdict.keys():
+        if key != "path":
+            seqdict[key] = find_min_max(seqdict[key])
+            seqdict[key] = find_nan_frames(seqdict[key])
+            seqdict[key] = find_inf_frames(seqdict[key])
+            save_techcheck(seqdict[key], outpath)
