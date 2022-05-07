@@ -19,8 +19,8 @@ formatter = logging.Formatter("%(asctime)s;%(levelname)s;%(message)s",
 logdir = os.path.join(Path.home(), "oiio_techcheck")
 if not os.path.isdir(logdir):
     os.makedirs(logdir)
-logname = "oiio_techcheck_{}.log".format(datetime.datetime.now().strftime("%Y%m%d"))
-logfile = os.path.join(logdir, logname)
+LOGNAME = "oiio_techcheck_{}.log".format(datetime.datetime.now().strftime("%Y%m%d"))
+logfile = os.path.join(logdir, LOGNAME)
 output_file_handler = logging.FileHandler(logfile)
 output_file_handler.setFormatter(formatter)
 log.addHandler(output_file_handler)
@@ -76,6 +76,8 @@ def seq_stats_checker(dirpath):
                         if os.path.isfile(file.path):
                             statsdict = get_oiio_stats(file.path)
                             seqdict[seqkey]['frames'][frame]['stats'] = statsdict
+    else:
+        log.error("Path is not a directory: {0}".format(dirpath))
 
     # remove empty items
     for item in list(seqdict):
@@ -85,7 +87,7 @@ def seq_stats_checker(dirpath):
 
 
 def find_min_max(seqdetect):
-    if seqdetect:
+    if seqdetect['frames']:
         maxred = [seqdetect['frames'][x]['stats']['max'][0] for x in seqdetect['frames']]
         maxgreen = [seqdetect['frames'][x]['stats']['max'][1] for x in seqdetect['frames']]
         maxblue = [seqdetect['frames'][x]['stats']['max'][2] for x in seqdetect['frames']]
@@ -96,12 +98,12 @@ def find_min_max(seqdetect):
         seqdetect['maximum'] = max(maxred), max(maxgreen), max(maxblue)
         seqdetect['minimum'] = min(minred), min(mingreen), min(minblue)
 
-        return seqdetect
+    return seqdetect
 
 
 def find_nan_frames(seqdetect):
-    seqdetect['nans'] = list()
-    if seqdetect:
+    if seqdetect['frames']:
+        seqdetect['nans'] = list()
         for frame in seqdetect['frames']:
             if int(max(seqdetect['frames'][frame]['stats']['nan'])) > 0:
                 seqdetect['nans'].append(frame)
@@ -109,29 +111,42 @@ def find_nan_frames(seqdetect):
 
 
 def find_inf_frames(seqdetect):
-    seqdetect['infs'] = list()
-    if seqdetect:
+    if seqdetect['frames']:
+        seqdetect['infs'] = list()
         for frame in seqdetect['frames']:
             if int(max(seqdetect['frames'][frame]['stats']['inf'])) > 0:
                 seqdetect['infs'].append(frame)
     return seqdetect
 
 
-def save_techcheck(seqdetect, outpath):
-    outfilename = os.path.basename(seqdetect['path']).split('.')[0]
-    outfilepath = os.path.join(outpath, "{0}_{1}.json".format(outfilename, "techcheck"))
-    with open(outfilepath, 'w') as outfile:
-        json.dump(seqdetect, outfile, indent=4)
+def save_techchecks(seqdict, outpath):
+    """
+    Save all dicts in seqdict to json file
+    Args:
+        seqdict (dict): dict of sequence stats
+        outpath (str): output directory to save files to
+
+    Returns:
+        None
+
+    """
+    for key in seqdict.keys():
+        if key != "path":
+            if seqdict[key]['frames']:
+                outfilename = os.path.basename(seqdict[key]['path']).split('.')[0]
+                outfilepath = os.path.join(outpath, "{0}_{1}.json".format(outfilename, "techcheck"))
+                with open(outfilepath, 'w') as outfile:
+                    json.dump(seqdict[key], outfile, indent=4)
+                    log.info("Saved stats file: {0}".format(outfilepath))
 
 
 if __name__ == "__main__":
     dirpath = sys.argv[1]
     outpath = sys.argv[2]
     seqdict = seq_stats_checker(dirpath)
-
     for key in seqdict.keys():
         if key != "path":
             seqdict[key] = find_min_max(seqdict[key])
             seqdict[key] = find_nan_frames(seqdict[key])
             seqdict[key] = find_inf_frames(seqdict[key])
-            save_techcheck(seqdict[key], outpath)
+    save_techchecks(seqdict, outpath)
