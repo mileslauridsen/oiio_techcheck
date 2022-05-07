@@ -2,7 +2,16 @@ import argparse
 import oiio_techcheck as oiiotc
 
 # construct the argument parse and parse the arguments
-ap = argparse.ArgumentParser()
+ap = argparse.ArgumentParser(description="Check for files of type: "
+                                         "'.exr', '.tif', '.hdr', '.jpg', '.png'"
+                                         "in input directory.\n"
+                                         "Detect stats with oiiotool and return "
+                                         "original stats along with a summary of "
+                                         "overall min/max and frame numbers of "
+                                         "any nans or infs.\n"
+                                         "Save each detected sequence's stats as "
+                                         "as a JSON file",
+                             formatter_class=argparse.RawTextHelpFormatter)
 
 ap.add_argument("-d", "--dirpath",
                 required=True,
