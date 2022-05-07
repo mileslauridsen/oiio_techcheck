@@ -1,6 +1,24 @@
 # oiio_techcheck
 
-A tool to check the image stats of an image or sequence of images
+A tool to check the image stats of an image or sequence of images.
+
+It's intended as a python wrapper to the shell examples listed below.
+
+## Usage
+```shell
+usage: oiio_techcheck_cli.py [-h] -d DIRPATH -o OUTPATH
+
+Check for files of type: '.exr', '.tif', '.hdr', '.jpg', '.png'in input directory.
+Detect stats with oiiotool and return original stats along with a summary of overall min/max and frame numbers of any nans or infs.
+Save each detected sequence's stats as as a JSON file
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -d DIRPATH, --dirpath DIRPATH
+                        Path to the directory to check for valid files
+  -o OUTPATH, --outpath OUTPATH
+                        Path to the output directory to save analysis
+```
 
 ## Examples using oiiotool cli
 Stats
@@ -30,29 +48,4 @@ Hash Output
 ```shell
 ./PROJECTS/test_project/render/test_output_v001.exr : 2048 x 1556, 3 channel, half openexr
     SHA-1: 4777E8AFB18508B932ADE95DA5C6BD6BAA021C21
-```
-
-Metadata
-```shell
-oiiotool --info -v ./PROJECTS/test_project/render/test_output_v001.exr
-```
-
-Metadata Output
-```shell
-Reading ./PROJECTS/test_project/render/test_output_v001.exr
-./PROJECTS/test_project/render/test_output_v001.exr : 2048 x 1556, 3 channel, half openexr
-    channel list: R, G, B
-    acesImageContainerFlag: 1
-    chromaticities: 0.7347, 0.2653, 0, 1, 0.0001, -0.077, 0.32168, 0.33767
-    compression: "none"
-    nuke/full_layer_names: 0
-    nuke/node_hash: "1a"
-    nuke/version: "11.1v2"
-    PixelAspectRatio: 1
-    screenWindowCenter: 0, 0
-    screenWindowWidth: 1
-    version: 1
-    oiio:ColorSpace: "Linear"
-    oiio:subimages: 1
-    smpte:TimeCode: 00:00:00:00
 ```
