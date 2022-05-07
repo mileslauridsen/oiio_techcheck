@@ -1,6 +1,5 @@
 import argparse
 import oiio_techcheck as oiiotc
-from pprint import pprint
 
 # construct the argument parse and parse the arguments
 ap = argparse.ArgumentParser()
