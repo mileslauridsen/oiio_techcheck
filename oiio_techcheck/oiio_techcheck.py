@@ -1,12 +1,11 @@
 import subprocess
 import re
 import os
-import sys
 import logging
 import datetime
 import json
-import pyseq
 from pathlib import Path
+import pyseq
 
 # set logging
 logging.basicConfig(level=logging.INFO)
@@ -29,8 +28,16 @@ OIIOTOOL = "/usr/local/bin/oiiotool"
 FILETYPES = ['.exr', '.tif', '.hdr', '.jpg', '.png']
 
 
-def get_oiio_stats(filename):
-    oiiostats = subprocess.Popen([OIIOTOOL, '--hash', '--stats', filename],
+def get_oiio_stats(filepath):
+    """
+    Get stats and hash for an input file
+    Args:
+        filepath (str): File path string
+
+    Returns:
+        dict: dictionary of file stats and hash
+    """
+    oiiostats = subprocess.Popen([OIIOTOOL, '--hash', '--stats', filepath],
                                  stdout=subprocess.PIPE,
                                  stderr=subprocess.PIPE,
                                  universal_newlines=True)
@@ -58,6 +65,14 @@ def get_oiio_stats(filename):
 
 
 def seq_stats_checker(dirpath):
+    """
+    Check a directory for valid files and return detections for sequences found
+    Args:
+        dirpath (str): Directory path
+
+    Returns:
+        dict: dictionary of sequence file stats and hash
+    """
     seqdict = dict()
     if os.path.isdir(dirpath):
         log.info("Checking dirpath: {0}".format(dirpath))
@@ -87,6 +102,14 @@ def seq_stats_checker(dirpath):
 
 
 def find_min_max(seqdetect):
+    """
+    Check for overall min/max values in input seqdetect frames
+    Args:
+        seqdetect (dict): dictionary of file stats
+
+    Returns:
+        dict: seqdetect with overall min/max for each channel
+    """
     if seqdetect['frames']:
         maxred = [seqdetect['frames'][x]['stats']['max'][0] for x in seqdetect['frames']]
         maxgreen = [seqdetect['frames'][x]['stats']['max'][1] for x in seqdetect['frames']]
@@ -102,6 +125,14 @@ def find_min_max(seqdetect):
 
 
 def find_nan_frames(seqdetect):
+    """
+    Check for any nan values in input seqdetect frames
+    Args:
+        seqdetect (dict): dictionary of file stats
+
+    Returns:
+        dict: seqdetect with frame numbers of any nan's detected
+    """
     if seqdetect['frames']:
         seqdetect['nans'] = list()
         for frame in seqdetect['frames']:
@@ -111,6 +142,14 @@ def find_nan_frames(seqdetect):
 
 
 def find_inf_frames(seqdetect):
+    """
+    Check for any inf values in input seqdetect frames
+    Args:
+        seqdetect (dict): dictionary of file stats
+
+    Returns:
+        dict: seqdetect with frame numbers of any inf's detected
+    """
     if seqdetect['frames']:
         seqdetect['infs'] = list()
         for frame in seqdetect['frames']:
@@ -138,15 +177,3 @@ def save_techchecks(seqdict, outpath):
                 with open(outfilepath, 'w') as outfile:
                     json.dump(seqdict[key], outfile, indent=4)
                     log.info("Saved stats file: {0}".format(outfilepath))
-
-
-if __name__ == "__main__":
-    dirpath = sys.argv[1]
-    outpath = sys.argv[2]
-    seqdict = seq_stats_checker(dirpath)
-    for key in seqdict.keys():
-        if key != "path":
-            seqdict[key] = find_min_max(seqdict[key])
-            seqdict[key] = find_nan_frames(seqdict[key])
-            seqdict[key] = find_inf_frames(seqdict[key])
-    save_techchecks(seqdict, outpath)
